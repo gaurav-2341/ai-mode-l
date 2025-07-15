@@ -85,7 +85,10 @@
       await webcam.setup();
       await webcam.play();
       window.requestAnimationFrame(loop);
-      document.getElementById("webcam").appendChild(webcam.canvas);
+      const videoContainer = document.getElementById("webcam");
+      videoContainer.innerHTML = ""; // clear old canvas if any
+      videoContainer.appendChild(webcam.canvas);
+
     }
     async function loop() {
       webcam.update();
