@@ -1,0 +1,131 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Driver Drowsiness Detection</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      background: #111827;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: start;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 10px;
+      font-size: 2em;
+      color: #38bdf8;
+    }
+    .video-container {
+      position: relative;
+      border: 4px solid #38bdf8;
+      border-radius: 20px;
+      overflow: hidden;
+      margin-top: 20px;
+    }
+    canvas {
+      border-radius: 20px;
+    }
+    #status {
+      font-size: 1.6em;
+      margin-top: 20px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      background-color: #1f2937;
+      color: #fef08a;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+    }
+    #status.awake {
+      background-color: #15803d;
+      color: #d1fae5;
+    }
+    #status.drowsy {
+      background-color: #facc15;
+      color: #1c1917;
+    }
+    #status.sleepy {
+      background-color: #dc2626;
+      color: #fef2f2;
+    }
+    .footer {
+      margin-top: auto;
+      padding: 10px;
+      font-size: 0.9em;
+      color: #9ca3af;
+    }
+  </style>
+</head>
+<body>
+  <h1>Driver Drowsiness Detection</h1>
+  <div class="video-container">
+    <video id="webcam" width="320" height="240" autoplay muted></video>
+  </div>
+  <div id="status">Status: Initializing...</div>
+  <audio id="alarm-sound" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"></audio>
+  <div class="footer">Built with ❤️ using Teachable Machine and TensorFlow.js</div>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image"></script>
+  <script>
+    const URL = "https://teachablemachine.withgoogle.com/models/B2I_hn6PG/";
+    let model, webcam, labelContainer, maxPredictions;
+    async function init() {
+      const modelURL = URL + "model.json";
+      const metadataURL = URL + "metadata.json";
+      model = await tmImage.load(modelURL, metadataURL);
+      maxPredictions = model.getTotalClasses();
+      webcam = new tmImage.Webcam(320, 240, true);
+      await webcam.setup();
+      await webcam.play();
+      window.requestAnimationFrame(loop);
+      document.getElementById("webcam").appendChild(webcam.canvas);
+    }
+    async function loop() {
+      webcam.update();
+      await predict();
+      window.requestAnimationFrame(loop);
+    }
+    const alarm = document.getElementById("alarm-sound");
+    const statusEl = document.getElementById("status");
+    let lastLabel = "";
+    let sleepyCounter = 0;
+    async function predict() {
+      const prediction = await model.predict(webcam.canvas);
+      let highestProb = 0;
+      let detectedState = "";
+      for (let i = 0; i < prediction.length; i++) {
+        if (prediction[i].probability > highestProb) {
+          highestProb = prediction[i].probability;
+          detectedState = prediction[i].className;
+        }
+      }
+      statusEl.textContent = `Status: ${detectedState} (${(highestProb * 100).toFixed(1)}%)`;
+      statusEl.className = "";
+      if (detectedState === "Awake") {
+        statusEl.classList.add("awake");
+        alarm.pause();
+        alarm.currentTime = 0;
+        sleepyCounter = 0;
+      } else if (detectedState === "Drowsy") {
+        statusEl.classList.add("drowsy");
+        sleepyCounter++;
+      } else if (detectedState === "Sleepy") {
+        statusEl.classList.add("sleepy");
+        sleepyCounter += 2;
+      }
+      if (sleepyCounter >= 5) {
+        if (alarm.paused) alarm.play();
+      }
+      lastLabel = detectedState;
+    }
+    init();
+  </script>
+</body>
+</html>
